@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0c">
+<title>Golden Harmonics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400&family=Jost:wght@300;400;500&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0c;
+    --gold:#d8b56a;
+    --gold-soft:#c9a86040;
+    --ink:#ece6da;
+    --ink-dim:#8b8579;
+    --line:#2a2722;
+    --accent:#d8b56a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Jost',sans-serif;
+    font-weight:300;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-height:100dvh;
+    background-image:
+      radial-gradient(120% 90% at 50% 12%, #18140c 0%, #0c0b0d 45%, #060608 100%);
+  }
+  /* grain */
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.035;z-index:9;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap{
+    width:100%;max-width:480px;flex:1;display:flex;flex-direction:column;
+    align-items:center;padding:max(22px,env(safe-area-inset-top)) 22px max(22px,env(safe-area-inset-bottom));
+    position:relative;z-index:2;
+  }
+  header{text-align:center;margin-top:4px;}
+  header .eyebrow{
+    font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.42em;
+    text-transform:uppercase;color:var(--ink-dim);padding-left:.42em;
+  }
+  header h1{
+    font-family:'Cormorant Garamond',serif;font-weight:400;font-size:30px;
+    letter-spacing:.01em;margin-top:6px;color:var(--ink);
+  }
+  header h1 em{color:var(--gold);font-style:italic;}
+
+  /* Orb / visual */
+  .stage{flex:1;width:100%;display:flex;align-items:center;justify-content:center;position:relative;min-height:230px;}
+  .orb{
+    position:relative;width:min(62vw,250px);aspect-ratio:1;display:flex;
+    align-items:center;justify-content:center;cursor:pointer;
+    -webkit-user-select:none;user-select:none;
+    transform:scale(var(--pulse,1));transition:transform .08s linear;
+  }
+  .ring{position:absolute;inset:0;border-radius:50%;border:1px solid var(--gold-soft);}
+  .ring.r2{inset:-9%;opacity:.5;}
+  .ring.r3{inset:-19%;opacity:.28;}
+  .glow{
+    position:absolute;inset:6%;border-radius:50%;
+    background:radial-gradient(circle at 50% 42%, #f0d79a 0%, #d8b56a 26%, #9a7b35 55%, #2a2114 78%, transparent 100%);
+    filter:blur(2px);
+    opacity:calc(.34 + var(--energy,0)*.6);
+    box-shadow:0 0 calc(40px + var(--energy,0)*90px) calc(2px + var(--energy,0)*30px) #c9a86055;
+    transition:opacity .12s linear, box-shadow .12s linear;
+  }
+  .orb .read{position:relative;z-index:3;text-align:center;mix-blend-mode:screen;}
+  .orb .hz{font-family:'Cormorant Garamond',serif;font-size:54px;font-weight:400;line-height:.9;color:#0c0a06;text-shadow:0 1px 0 #f4e3b8;}
+  .orb .hz .u{font-size:18px;letter-spacing:.05em;opacity:.7;}
+  .orb .chakra{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:#1a1407;margin-top:7px;}
+  .idle .glow{opacity:.16;box-shadow:none;}
+  .orb .hint{position:absolute;left:0;right:0;bottom:4%;z-index:4;text-align:center;pointer-events:none;
+    font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.26em;text-transform:uppercase;
+    color:var(--gold);opacity:.8;transition:opacity .35s;}
+  .orb:not(.idle) .hint{opacity:.45;}
+
+  .partial-info{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--ink-dim);text-align:center;margin-top:-6px;margin-bottom:14px;min-height:14px;}
+
+  /* presets */
+  .presets{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;width:100%;margin-bottom:12px;}
+  .preset{
+    background:#13110d;border:1px solid var(--line);border-radius:13px;
+    padding:9px 6px 8px;text-align:center;cursor:pointer;
+    transition:border-color .25s,background .25s,transform .1s;
+  }
+  .preset:active{transform:scale(.97);}
+  .preset .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-bottom:5px;box-shadow:0 0 7px currentColor;}
+  .preset .f{font-family:'Space Mono',monospace;font-size:14px;color:var(--ink);}
+  .preset .n{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);margin-top:1px;}
+  .preset.active{border-color:var(--gold);background:#1d180e;}
+  .preset.active .f{color:var(--gold);}
+
+  /* custom */
+  .custom{display:flex;align-items:center;gap:10px;width:100%;margin-bottom:16px;
+    background:#13110d;border:1px solid var(--line);border-radius:13px;padding:10px 14px;}
+  .custom label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim);white-space:nowrap;}
+  .custom input{
+    flex:1;background:transparent;border:none;color:var(--ink);
+    font-family:'Space Mono',monospace;font-size:16px;text-align:right;outline:none;min-width:0;
+  }
+  .custom input::placeholder{color:#4a463d;}
+  .custom .unit{font-family:'Space Mono',monospace;font-size:12px;color:var(--ink-dim);}
+
+  /* controls row */
+  .row{display:flex;align-items:center;gap:12px;width:100%;margin-bottom:14px;}
+
+  /* harmonic toggle strip */
+  .harm-head{display:flex;align-items:baseline;justify-content:space-between;width:100%;margin-bottom:8px;}
+  .harm-head .lbl{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);}
+  .harm-head .lbl b{font-family:'Space Mono',monospace;color:var(--gold);font-weight:400;text-transform:none;letter-spacing:0;}
+  .harm-head .mini{display:flex;gap:6px;}
+  .harm-head .mini button{background:transparent;border:1px solid var(--line);border-radius:7px;
+    color:var(--ink-dim);font-family:'Jost',sans-serif;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    padding:4px 10px;cursor:pointer;transition:color .2s,border-color .2s;}
+  .harm-head .mini button:active{color:var(--gold);border-color:var(--gold);}
+  .strip{display:flex;gap:3px;width:100%;margin-bottom:16px;}
+  .pchip{flex:1;min-width:0;background:#100e0a;border:1px solid var(--line);border-radius:9px;
+    padding:6px 1px 5px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;
+    transition:border-color .2s,background .2s,opacity .2s;}
+  .pchip .bar{width:58%;height:16px;display:flex;align-items:flex-end;}
+  .pchip .bar i{width:100%;background:#2a2722;border-radius:2px;transition:background .25s,height .25s;}
+  .pchip .ex{font-family:'Space Mono',monospace;font-size:10px;color:var(--ink-dim);line-height:1;}
+  .pchip .hz{font-family:'Space Mono',monospace;font-size:8px;color:#54503f;line-height:1;}
+  .pchip.on{background:#1d180e;border-color:#6a5526;}
+  .pchip.on .bar i{background:linear-gradient(to top,#9a7b35,#f0d79a);}
+  .pchip.on .ex{color:var(--gold);}
+  .pchip.on .hz{color:var(--ink-dim);}
+  .pchip.base .ex{color:var(--ink);font-weight:700;}
+  .pchip.base{border-color:#4a4334;}
+  .pchip.base.on{border-color:var(--gold);}
+  .pchip.oor{opacity:.3;pointer-events:none;}
+  .toggle{display:flex;align-items:center;gap:9px;background:#13110d;border:1px solid var(--line);
+    border-radius:11px;padding:9px 13px;cursor:pointer;white-space:nowrap;}
+  .toggle .sw{width:34px;height:18px;border-radius:10px;background:#2a2722;position:relative;transition:background .25s;flex:none;}
+  .toggle .sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#6a6456;transition:transform .25s,background .25s;}
+  .toggle.on .sw{background:#5a4a22;}
+  .toggle.on .sw::after{transform:translateX(16px);background:var(--gold);}
+  .toggle span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);}
+  .toggle.on span{color:var(--ink);}
+
+  /* volume */
+  .vol{display:flex;align-items:center;gap:13px;width:100%;margin-bottom:20px;}
+  .vol svg{flex:none;opacity:.6;}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:3px;border-radius:3px;
+    background:linear-gradient(to right,var(--gold) var(--p,50%),#2a2722 var(--p,50%));outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+    background:#f0d79a;box-shadow:0 0 10px #d8b56a99;cursor:pointer;}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;border:none;border-radius:50%;background:#f0d79a;cursor:pointer;}
+
+  /* play */
+  .play{
+    width:100%;padding:17px;border:none;border-radius:16px;cursor:pointer;
+    background:linear-gradient(135deg,#e7cf94,#c39b4d);color:#1a1306;
+    font-family:'Jost',sans-serif;font-weight:500;font-size:14px;letter-spacing:.22em;text-transform:uppercase;
+    transition:transform .1s,filter .2s,box-shadow .3s;box-shadow:0 6px 30px #c9a86033;
+  }
+  .play:active{transform:scale(.985);}
+  .play.playing{background:linear-gradient(135deg,#211a0e,#15110a);color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold);}
+  footer{font-size:10.5px;color:#5a554a;text-align:center;margin-top:13px;line-height:1.55;letter-spacing:.04em;}
+  footer b{color:var(--ink-dim);font-weight:400;}
+</style>
+</head>
+<body class="idle">
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Golden Ratio · φ 1.618</div>
+    <h1>Harmonic <em>Resonance</em></h1>
+  </header>
+
+  <div class="stage">
+    <div class="orb idle" id="orb">
+      <div class="ring r3"></div><div class="ring r2"></div><div class="ring"></div>
+      <div class="glow"></div>
+      <div class="read">
+        <div class="hz"><span id="hzVal">396</span><span class="u"> Hz</span></div>
+        <div class="chakra" id="chakra">Root · Muladhara</div>
+      </div>
+      <div class="hint" id="hint">Tap to begin</div>
+    </div>
+  </div>
+
+  <div class="partial-info" id="pInfo"></div>
+
+  <div class="presets" id="presets"></div>
+
+  <div class="custom">
+    <label>Custom</label>
+    <input id="customF" type="number" inputmode="decimal" min="20" max="12000" placeholder="enter Hz">
+    <span class="unit">Hz</span>
+  </div>
+
+  <div class="harm-head">
+    <span class="lbl">Harmonics · <b>f·φⁿ</b></span>
+    <div class="mini"><button id="allBtn">All</button><button id="noneBtn">None</button></div>
+  </div>
+  <div class="strip" id="strip"></div>
+
+  <div class="row">
+    <div class="toggle" id="drone"><div class="sw"></div><span>440 drone</span></div>
+  </div>
+
+  <div class="vol">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d8b56a" stroke-width="1.4"><path d="M11 5 6 9H3v6h3l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+    <input type="range" id="vol" min="0" max="100" value="50">
+  </div>
+
+  <button class="play" id="play">Begin</button>
+
+  <footer>
+    Pure-sine golden-ratio harmonics, generated live. <b>iPhone:</b> if silent, flip the side mute switch.<br>
+    A sound tool — not a medical device.
+  </footer>
+</div>
+
+<script>
+"use strict";
+const PHI = 1.6180339887498949;
+
+const PRESETS = [
+  {f:396, name:"Root", sub:"Muladhara", c:"#d0473b"},
+  {f:417, name:"Sacral", sub:"Svadhisthana", c:"#e07b2e"},
+  {f:528, name:"Solar", sub:"Manipura", c:"#e6c12e"},
+  {f:639, name:"Heart", sub:"Anahata", c:"#46c46a"},
+  {f:741, name:"Throat", sub:"Vishuddha", c:"#3aa0e0"},
+  {f:852, name:"Third Eye", sub:"Ajna", c:"#7c6fd0"},
+  {f:963, name:"Crown", sub:"Sahasrara", c:"#b06fe0"},
+  {f:432, name:"Universal", sub:"Relaxation", c:"#26b39a"},
+  {f:888, name:"Abundance", sub:"Activation", c:"#d8b56a"},
+];
+// which golden partials are active (n=0 is the base frequency itself)
+const N_RANGE = [-5,-4,-3,-2,-1,0,1,2,3,4,5];
+const DEFAULT_ON = [-1,0,1,2,3,4];
+
+const state = { freq:396, vol:0.5, on:new Set(DEFAULT_ON), drone:false, playing:false };
+
+const SUP = {"-":"⁻","+":"⁺","0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵"};
+function supExp(n){
+  if(n===0) return "⁰";
+  return ((n<0?"-":"+") + Math.abs(n)).split("").map(c=>SUP[c]).join("");
+}
+function inRange(freq){ return freq>=16 && freq<=14000; }
+
+// ---------- audio ----------
+let ctx=null, master=null, analyser=null;
+let partials=[], droneNode=null, wakeLock=null, rafId=null;
+
+function ensureCtx(){
+  if(ctx) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  master = ctx.createGain();
+  master.gain.value = 0;
+  analyser = ctx.createAnalyser();
+  analyser.fftSize = 1024;
+  master.connect(analyser);
+  analyser.connect(ctx.destination);
+}
+
+// broad mid-weighted curve with a lift on the top partials (the "shimmer")
+function ampCurve(n){
+  const sigma = 2.4;
+  let a = Math.exp(-Math.pow(n - 0.4, 2) / (2*sigma*sigma));
+  if(n >= 4) a += 0.16;            // airy high partials
+  return a;
+}
+
+function rampMaster(target, t){
+  const g = master.gain, now = ctx.currentTime;
+  if(g.cancelAndHoldAtTime) g.cancelAndHoldAtTime(now);
+  else { g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); }
+  g.linearRampToValueAtTime(target, now + t);
+}
+
+function buildPartials(f){
+  const list = [];
+  N_RANGE.forEach(n=>{
+    if(!state.on.has(n)) return;
+    const freq = f * Math.pow(PHI, n);
+    if(!inRange(freq)) return;                     // keep it audible & gentle
+    list.push({ n, freq, a:ampCurve(n) });
+  });
+  const sum = list.reduce((s,p)=>s+p.a, 0) || 1;
+  list.forEach(p=>{
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = p.freq;
+    const g = ctx.createGain();
+    const base = (p.a/sum) * 0.85;                 // normalized → no clipping
+    g.gain.value = base;
+    // slow independent swell so the field feels alive
+    const lfo = ctx.createOscillator();
+    lfo.type = "sine";
+    lfo.frequency.value = 0.025 + Math.random()*0.05;
+    const lfoG = ctx.createGain();
+    lfoG.gain.value = base * 0.45;
+    lfo.connect(lfoG); lfoG.connect(g.gain);
+    osc.connect(g); g.connect(master);
+    osc.start(); lfo.start();
+    partials.push({osc, g, lfo, lfoG});
+  });
+  return list;
+}
+function teardownPartials(){
+  partials.forEach(p=>{ try{p.osc.stop();p.lfo.stop();}catch(e){}
+    p.osc.disconnect();p.g.disconnect();p.lfo.disconnect();p.lfoG.disconnect(); });
+  partials = [];
+}
+function buildDrone(){
+  if(droneNode) return;
+  const osc = ctx.createOscillator(); osc.type="sine"; osc.frequency.value=440;
+  const g = ctx.createGain(); g.gain.value=0.22;
+  osc.connect(g); g.connect(master); osc.start();
+  droneNode = {osc, g};
+}
+function teardownDrone(){
+  if(!droneNode) return;
+  try{droneNode.osc.stop();}catch(e){}
+  droneNode.osc.disconnect(); droneNode.g.disconnect(); droneNode=null;
+}
+
+function renderStrip(){
+  const maxA = Math.max.apply(null, N_RANGE.map(ampCurve));
+  const active = [];
+  stripEl.querySelectorAll(".pchip").forEach(chip=>{
+    const n = Number(chip.dataset.n);
+    const freq = state.freq * Math.pow(PHI, n);
+    const oor = !inRange(freq);
+    const on = state.on.has(n) && !oor;
+    chip.classList.toggle("oor", oor);
+    chip.classList.toggle("on", on);
+    chip.querySelector(".hz").textContent = oor ? "—" : Math.round(freq);
+    chip.querySelector(".bar i").style.height = (18 + (ampCurve(n)/maxA)*82).toFixed(0) + "%";
+    if(on) active.push(freq);
+  });
+  active.sort((a,b)=>a-b);
+  pInfo.textContent = active.length
+    ? `${active.length} tone${active.length>1?"s":""} · ${Math.round(active[0])}\u2013${Math.round(active[active.length-1])} Hz`
+    : "no tones selected";
+}
+
+// ---------- transport ----------
+async function start(){
+  ensureCtx();
+  if(ctx.state === "suspended") await ctx.resume();
+  const list = buildPartials(state.freq);
+  if(state.drone) buildDrone();
+  rampMaster(state.vol, 2.2);
+  state.playing = true;
+  document.body.classList.remove("idle");
+  orb.classList.remove("idle");
+  play.classList.add("playing");
+  play.textContent = "Pause";
+  hint.textContent = "Tap to pause";
+  renderStrip();
+  requestWake();
+  runViz();
+}
+function stop(){
+  state.playing = false;
+  rampMaster(0, 1.6);
+  setTimeout(()=>{ if(!state.playing){ teardownPartials(); teardownDrone(); } }, 1700);
+  orb.classList.add("idle");
+  play.classList.remove("playing");
+  play.textContent = "Begin";
+  hint.textContent = "Tap to begin";
+  releaseWake();
+  cancelAnimationFrame(rafId);
+  orb.style.setProperty("--pulse",1); orb.style.setProperty("--energy",0);
+}
+function rebuild(){            // base / partials / drone changed mid-session: smooth swap
+  if(!state.playing) return;
+  rampMaster(0, 0.7);
+  setTimeout(()=>{
+    if(!state.playing) return;
+    teardownPartials(); teardownDrone();
+    const list = buildPartials(state.freq);
+    if(state.drone) buildDrone();
+    rampMaster(state.vol, 1.3);
+    renderStrip();
+  }, 720);
+}
+
+// ---------- visualizer ----------
+function runViz(){
+  const buf = new Uint8Array(analyser.fftSize);
+  let smooth = 0;
+  const tick = ()=>{
+    analyser.getByteTimeDomainData(buf);
+    let sum=0; for(let i=0;i<buf.length;i++){ const v=(buf[i]-128)/128; sum+=v*v; }
+    const rms = Math.sqrt(sum/buf.length);
+    smooth += (rms - smooth) * 0.12;
+    const e = Math.min(1, smooth*3.2);
+    orb.style.setProperty("--energy", e.toFixed(3));
+    orb.style.setProperty("--pulse", (1 + e*0.06).toFixed(4));
+    rafId = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+// ---------- wake lock ----------
+async function requestWake(){
+  try{ if("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); }catch(e){}
+}
+function releaseWake(){ try{ wakeLock && wakeLock.release(); }catch(e){} wakeLock=null; }
+document.addEventListener("visibilitychange", ()=>{
+  if(state.playing && document.visibilityState==="visible" && "wakeLock" in navigator && !wakeLock) requestWake();
+});
+
+// ---------- UI wiring ----------
+const presetsEl=document.getElementById("presets");
+const hzVal=document.getElementById("hzVal");
+const chakra=document.getElementById("chakra");
+const pInfo=document.getElementById("pInfo");
+const orb=document.getElementById("orb");
+const play=document.getElementById("play");
+const hint=document.getElementById("hint");
+const customF=document.getElementById("customF");
+const volEl=document.getElementById("vol");
+const droneEl=document.getElementById("drone");
+const stripEl=document.getElementById("strip");
+const allBtn=document.getElementById("allBtn");
+const noneBtn=document.getElementById("noneBtn");
+
+PRESETS.forEach(p=>{
+  const el=document.createElement("div");
+  el.className="preset"; el.dataset.f=p.f;
+  el.innerHTML=`<span class="dot" style="color:${p.c}"></span>
+    <div class="f">${p.f}</div><div class="n">${p.name}</div>`;
+  el.addEventListener("click", ()=>selectFreq(p.f, p));
+  presetsEl.appendChild(el);
+});
+
+function selectFreq(f, preset){
+  state.freq = f;
+  hzVal.textContent = Number.isInteger(f) ? f : f.toFixed(1);
+  chakra.textContent = preset ? `${preset.name} · ${preset.sub}` : "Custom Frequency";
+  const dotColor = preset ? preset.c : "#d8b56a";
+  document.querySelectorAll(".preset").forEach(el=>{
+    el.classList.toggle("active", Number(el.dataset.f)===f);
+  });
+  if(preset) customF.value="";
+  renderStrip();
+  rebuild();
+}
+
+customF.addEventListener("input", ()=>{
+  const v=parseFloat(customF.value);
+  if(v>=20 && v<=12000) selectFreq(v, null);
+});
+
+volEl.addEventListener("input", ()=>{
+  state.vol = volEl.value/100;
+  volEl.style.setProperty("--p", volEl.value+"%");
+  if(state.playing) rampMaster(state.vol, 0.3);
+});
+volEl.style.setProperty("--p","50%");
+
+// build the per-partial harmonic toggle strip
+N_RANGE.forEach(n=>{
+  const chip=document.createElement("div");
+  chip.className="pchip"+(n===0?" base":"");
+  chip.dataset.n=n;
+  chip.innerHTML=`<div class="bar"><i></i></div>
+    <div class="ex">${n===0?"f":"φ"+supExp(n)}</div><div class="hz"></div>`;
+  chip.addEventListener("click",()=>{
+    if(state.on.has(n)) state.on.delete(n); else state.on.add(n);
+    renderStrip(); rebuild();
+  });
+  stripEl.appendChild(chip);
+});
+allBtn.addEventListener("click",()=>{
+  N_RANGE.forEach(n=>{ if(inRange(state.freq*Math.pow(PHI,n))) state.on.add(n); });
+  renderStrip(); rebuild();
+});
+noneBtn.addEventListener("click",()=>{ state.on.clear(); renderStrip(); rebuild(); });
+
+droneEl.addEventListener("click", ()=>{
+  state.drone=!state.drone;
+  droneEl.classList.toggle("on", state.drone);
+  if(state.playing){ if(state.drone) buildDrone(); else teardownDrone(); }
+});
+
+function togglePlay(){ state.playing ? stop() : start(); }
+play.addEventListener("click", togglePlay);
+orb.addEventListener("click", togglePlay);
+
+// init
+selectFreq(396, PRESETS[0]);
+</script>
+</body>
+</html>
