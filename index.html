@@ -223,7 +223,7 @@
   <button class="play" id="play">Begin</button>
 
   <footer>
-    Pure-sine golden-ratio harmonics, generated live. <b>iPhone:</b> if silent, flip the side mute switch.<br>
+    Pure-sine golden-ratio harmonics, generated live. <b>iPhone:</b> plays even with the ring switch on; use the side buttons for volume.<br>
     A sound tool — not a medical device.
   </footer>
 </div>
@@ -354,8 +354,20 @@ function renderStrip(){
 }
 
 // ---------- transport ----------
+function unlockIOSAudio(){
+  // 1) Tell iOS this is media playback → ignores the ring/mute switch
+  try{ if(navigator.audioSession) navigator.audioSession.type = "playback"; }catch(e){}
+  // 2) Fallback for older iOS: a one-sample silent buffer "kicks" Web Audio on
+  try{
+    const b = ctx.createBuffer(1, 1, 22050);
+    const s = ctx.createBufferSource();
+    s.buffer = b; s.connect(ctx.destination); s.start(0);
+  }catch(e){}
+}
+
 async function start(){
   ensureCtx();
+  unlockIOSAudio();                       // must run inside the user-gesture tap
   if(ctx.state === "suspended") await ctx.resume();
   const list = buildPartials(state.freq);
   if(state.drone) buildDrone();

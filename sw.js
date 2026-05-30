@@ -1,5 +1,5 @@
 /* Golden Harmonics service worker — offline support */
-const CACHE = "golden-harmonics-v1";
+const CACHE = "golden-harmonics-v2";
 const ASSETS = [
   "./",
   "./index.html",
