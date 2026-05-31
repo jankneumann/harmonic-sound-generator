@@ -174,6 +174,26 @@
   .play.playing{background:linear-gradient(135deg,#211a0e,#15110a);color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold);}
   footer{font-size:10.5px;color:#5a554a;text-align:center;margin-top:13px;line-height:1.55;letter-spacing:.04em;}
   footer b{color:var(--ink-dim);font-weight:400;}
+  /* mode selector */
+  .modes{display:flex;flex-wrap:wrap;gap:6px;width:100%;margin-bottom:14px;justify-content:center;}
+  .modes button{background:#13110d;border:1px solid var(--line);border-radius:20px;color:var(--ink-dim);
+    font-family:'Jost',sans-serif;font-size:11px;letter-spacing:.08em;padding:7px 14px;cursor:pointer;
+    transition:color .2s,background .2s,border-color .2s;}
+  .modes button.on{background:#211a0e;border-color:var(--gold);color:var(--gold);}
+  #baseWrap{width:100%;transition:opacity .3s,filter .3s;}
+  #baseWrap.disabled{opacity:.32;pointer-events:none;filter:grayscale(.7);}
+  .bhint{display:none;width:100%;text-align:center;font-family:'Space Mono',monospace;font-size:10px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim);margin:-4px 0 14px;}
+  /* brainwave beat control */
+  .beatctl{display:none;width:100%;margin:-2px 0 16px;background:#13110d;border:1px solid var(--line);border-radius:13px;padding:12px 14px;}
+  .beatctl .beathead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
+  .beatctl .beathead span:first-child{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim);}
+  .beatctl .beathead #beatRead{font-family:'Space Mono',monospace;font-size:12px;color:var(--gold);}
+  .beatctl .bands{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:11px;}
+  .beatctl .bands button{flex:1;min-width:54px;background:#100e0a;border:1px solid var(--line);border-radius:8px;
+    color:var(--ink-dim);font-family:'Jost',sans-serif;font-size:10.5px;letter-spacing:.05em;padding:6px 4px;cursor:pointer;
+    transition:color .2s,background .2s,border-color .2s;}
+  .beatctl .bands button.on{background:#211a0e;border-color:var(--gold);color:var(--gold);}
 </style>
 </head>
 <body class="idle">
@@ -197,6 +217,9 @@
 
   <div class="partial-info" id="pInfo"></div>
 
+  <div class="modes" id="modes"></div>
+
+  <div id="baseWrap">
   <div class="presets" id="presets"></div>
 
   <div class="custom">
@@ -204,12 +227,25 @@
     <input id="customF" type="number" inputmode="decimal" min="20" max="12000" placeholder="enter Hz">
     <span class="unit">Hz</span>
   </div>
+  </div><!-- /baseWrap -->
 
   <div class="harm-head">
-    <span class="lbl">Harmonics · <b>f·φⁿ</b></span>
+    <span class="lbl" id="harmLbl">Harmonics</span>
     <div class="mini"><button id="allBtn">All</button><button id="noneBtn">None</button></div>
   </div>
   <div class="strip" id="strip"></div>
+  <div class="bhint" id="bhint">Use headphones for the binaural effect.</div>
+  <div class="beatctl" id="beatCtl">
+    <div class="beathead"><span>Brainwave beat</span><span id="beatRead">7.8 Hz · Theta</span></div>
+    <div class="bands" id="bands">
+      <button data-hz="2">Delta</button>
+      <button data-hz="6">Theta</button>
+      <button data-hz="7.83">Schumann</button>
+      <button data-hz="10">Alpha</button>
+      <button data-hz="18">Beta</button>
+    </div>
+    <input type="range" id="beat" min="1" max="40" step="0.1" value="7.83">
+  </div>
 
   <div class="row">
     <div class="toggle" id="drone"><div class="sw"></div><span>440 drone</span></div>
@@ -233,6 +269,8 @@
 const PHI = 1.6180339887498949;
 
 const PRESETS = [
+  {f:174, name:"Foundation", sub:"Pain relief", c:"#9a3a3a"},
+  {f:285, name:"Healing", sub:"Regeneration", c:"#bd5a34"},
   {f:396, name:"Root", sub:"Muladhara", c:"#d0473b"},
   {f:417, name:"Sacral", sub:"Svadhisthana", c:"#e07b2e"},
   {f:528, name:"Solar", sub:"Manipura", c:"#e6c12e"},
@@ -240,21 +278,61 @@ const PRESETS = [
   {f:741, name:"Throat", sub:"Vishuddha", c:"#3aa0e0"},
   {f:852, name:"Third Eye", sub:"Ajna", c:"#7c6fd0"},
   {f:963, name:"Crown", sub:"Sahasrara", c:"#b06fe0"},
-  {f:432, name:"Universal", sub:"Relaxation", c:"#26b39a"},
-  {f:888, name:"Abundance", sub:"Activation", c:"#d8b56a"},
 ];
-// which golden partials are active (n=0 is the base frequency itself)
-const N_RANGE = [-5,-4,-3,-2,-1,0,1,2,3,4,5];
-const DEFAULT_ON = [-1,0,1,2,3,4];
-
-const state = { freq:396, vol:0.5, on:new Set(DEFAULT_ON), drone:false, playing:false };
 
 const SUP = {"-":"⁻","+":"⁺","0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵"};
-function supExp(n){
-  if(n===0) return "⁰";
-  return ((n<0?"-":"+") + Math.abs(n)).split("").map(c=>SUP[c]).join("");
-}
+function supExp(n){ if(n===0) return "⁰"; return ((n<0?"-":"+")+Math.abs(n)).split("").map(c=>SUP[c]).join(""); }
 function inRange(freq){ return freq>=16 && freq<=14000; }
+function fmtHz(f){ return f<100 ? Number(f.toFixed(1)) : Math.round(f); }
+function bandName(hz){ return hz<4?"Delta":hz<8?"Theta":hz<13?"Alpha":hz<30?"Beta":"Gamma"; }
+function gateCutoff(beat){ return Math.max(30, Math.min(800, beat*8)); }
+function baseLabel(f,p){ return p ? `${p.name} · ${p.sub}` : "Custom Frequency"; }
+
+// ---- scale modes: each maps a base frequency -> partials {id,label,freq} ----
+const MODES = {
+  golden: {
+    name:"Golden φ", usesBase:true,
+    partials:(f)=>{ const o=[]; for(let n=-5;n<=5;n++) o.push({id:"g"+n, label:n===0?"f":"φ"+supExp(n), freq:f*Math.pow(PHI,n)}); return o; },
+    defaultOn:["g-1","g0","g1","g2","g3","g4"],
+    display:(f,p)=>({hz:String(fmtHz(f)), sub:baseLabel(f,p)})
+  },
+  harmonic: {
+    name:"Harmonic", usesBase:true,
+    partials:(f)=>[1,2,3,4,5,6,7,8].map(k=>({id:"h"+k, label:"×"+k, freq:f*k})),
+    defaultOn:["h1","h2","h3","h4","h5"],
+    display:(f,p)=>({hz:String(fmtHz(f)), sub:baseLabel(f,p)})
+  },
+  fibonacci: {
+    name:"Fibonacci", usesBase:true,
+    partials:(f)=>[1,2,3,5,8,13,21,34].map(k=>({id:"fib"+k, label:"×"+k, freq:f*k})),
+    defaultOn:["fib1","fib2","fib3","fib5","fib8"],
+    display:(f,p)=>({hz:String(fmtHz(f)), sub:baseLabel(f,p)})
+  },
+  schumann: {
+    name:"Schumann", usesBase:false,
+    // 7.83 Hz raised by octaves into the audible range
+    partials:()=>[3,4,5,6,7,8,9].map(o=>{ const fr=7.83*Math.pow(2,o); return {id:"so"+o, label:String(fmtHz(fr)), freq:fr}; }),
+    defaultOn:["so4","so5","so6","so7"],
+    display:()=>({hz:"7.83", sub:"Schumann · octaves"})
+  },
+  binaural: {
+    name:"Binaural", usesBase:false, binaural:true,
+    // audible carriers, each split L/R; the offset (state.binBeat) is the perceived beat
+    partials:()=>[4,5,6,7].map(o=>{ const fr=7.83*Math.pow(2,o); return {id:"bn"+o, label:String(fmtHz(fr)), freq:fr}; }),
+    defaultOn:["bn4","bn5"],
+    display:()=>({hz:String(fmtHz(state.binBeat)), sub:"Binaural · "+bandName(state.binBeat)})
+  },
+  isochronic: {
+    name:"Isochronic", usesBase:false, isochronic:true,
+    // audible carriers, each pulsed on/off at state.binBeat — works on any speaker
+    partials:()=>[4,5,6,7].map(o=>{ const fr=7.83*Math.pow(2,o); return {id:"iso"+o, label:String(fmtHz(fr)), freq:fr}; }),
+    defaultOn:["iso4","iso5"],
+    display:()=>({hz:String(fmtHz(state.binBeat)), sub:"Isochronic · "+bandName(state.binBeat)})
+  }
+};
+
+const state = { freq:396, preset:PRESETS[0], mode:"golden", vol:0.5, drone:false, playing:false, binBeat:7.83, on:{} };
+Object.keys(MODES).forEach(k=>{ state.on[k]=new Set(MODES[k].defaultOn); });
 
 // ---------- audio ----------
 let ctx=null, master=null, analyser=null;
@@ -263,21 +341,26 @@ let partials=[], droneNode=null, wakeLock=null, rafId=null;
 function ensureCtx(){
   if(ctx) return;
   ctx = new (window.AudioContext || window.webkitAudioContext)();
-  master = ctx.createGain();
-  master.gain.value = 0;
-  analyser = ctx.createAnalyser();
-  analyser.fftSize = 1024;
-  master.connect(analyser);
-  analyser.connect(ctx.destination);
+  master = ctx.createGain(); master.gain.value = 0;
+  analyser = ctx.createAnalyser(); analyser.fftSize = 1024;
+  master.connect(analyser); analyser.connect(ctx.destination);
 }
 
-// broad mid-weighted curve with a lift on the top partials (the "shimmer")
-function ampCurve(n){
-  const sigma = 2.4;
-  let a = Math.exp(-Math.pow(n - 0.4, 2) / (2*sigma*sigma));
-  if(n >= 4) a += 0.16;            // airy high partials
+// mid-weighted level curve in octaves from a reference, with a high-end shimmer lift
+function ampForFreq(freq, ref){
+  const p = Math.log2(freq/ref);
+  let a = Math.exp(-Math.pow(p-0.3,2)/(2*1.7*1.7));
+  if(p >= 2.6) a += 0.16;
   return a;
 }
+function refBase(mode, activeList){
+  if(mode.usesBase) return state.freq;
+  if(!activeList.length) return 250;
+  const logs = activeList.map(p=>Math.log2(p.freq));
+  return Math.pow(2, logs.reduce((a,b)=>a+b,0)/logs.length);
+}
+function currentParts(){ return MODES[state.mode].partials(state.freq); }
+function activeParts(){ const on=state.on[state.mode]; return currentParts().filter(p=>on.has(p.id)&&inRange(p.freq)); }
 
 function rampMaster(target, t){
   const g = master.gain, now = ctx.currentTime;
@@ -286,38 +369,61 @@ function rampMaster(target, t){
   g.linearRampToValueAtTime(target, now + t);
 }
 
-function buildPartials(f){
-  const list = [];
-  N_RANGE.forEach(n=>{
-    if(!state.on.has(n)) return;
-    const freq = f * Math.pow(PHI, n);
-    if(!inRange(freq)) return;                     // keep it audible & gentle
-    list.push({ n, freq, a:ampCurve(n) });
-  });
-  const sum = list.reduce((s,p)=>s+p.a, 0) || 1;
-  list.forEach(p=>{
-    const osc = ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value = p.freq;
-    const g = ctx.createGain();
-    const base = (p.a/sum) * 0.85;                 // normalized → no clipping
-    g.gain.value = base;
-    // slow independent swell so the field feels alive
-    const lfo = ctx.createOscillator();
-    lfo.type = "sine";
-    lfo.frequency.value = 0.025 + Math.random()*0.05;
-    const lfoG = ctx.createGain();
-    lfoG.gain.value = base * 0.45;
-    lfo.connect(lfoG); lfoG.connect(g.gain);
-    osc.connect(g); g.connect(master);
-    osc.start(); lfo.start();
-    partials.push({osc, g, lfo, lfoG});
+function buildPartials(){
+  const mode = MODES[state.mode];
+  const list = activeParts();
+  const ref  = refBase(mode, list);
+  const weights = list.map(p=>ampForFreq(p.freq, ref));
+  const sum = weights.reduce((s,w)=>s+w, 0) || 1;
+  list.forEach((p,i)=>{
+    const unit = (weights[i]/sum) * 0.85;
+    const g = ctx.createGain(); g.connect(master);
+    const oscs=[]; let lfo=null, lfoG=null, extra=[], kind="mono", carrier=p.freq;
+
+    if(mode.binaural && ctx.createStereoPanner){
+      kind="binaural";
+      const amp = unit*0.5;                       // two oscillators per partial
+      g.gain.value = amp;
+      lfo=ctx.createOscillator(); lfo.type="sine"; lfo.frequency.value=0.025+Math.random()*0.05;
+      lfoG=ctx.createGain(); lfoG.gain.value=amp*0.45; lfo.connect(lfoG); lfoG.connect(g.gain); lfo.start();
+      [[p.freq,-1],[p.freq+state.binBeat,1]].forEach(([fr,pan])=>{
+        const o=ctx.createOscillator(); o.type="sine"; o.frequency.value=fr;
+        const pn=ctx.createStereoPanner(); pn.pan.value=pan;
+        o.connect(pn); pn.connect(g); o.start(); oscs.push(o); extra.push(pn);
+      });
+
+    } else if(mode.isochronic){
+      kind="isoc";
+      const amp = unit;
+      g.gain.value = amp*0.5;                      // gate pulses gain between 0 and amp
+      const o=ctx.createOscillator(); o.type="sine"; o.frequency.value=p.freq; o.connect(g); o.start(); oscs.push(o);
+      // square gate -> lowpass (rounds edges, prevents clicks) -> depth -> gain param
+      const gate=ctx.createOscillator(); gate.type="square"; gate.frequency.value=state.binBeat;
+      const lp=ctx.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=gateCutoff(state.binBeat);
+      const depth=ctx.createGain(); depth.gain.value=amp*0.5;
+      gate.connect(lp); lp.connect(depth); depth.connect(g.gain); gate.start();
+      lfo=gate; lfoG=depth; extra=[lp];
+
+    } else {
+      const amp = unit;
+      g.gain.value = amp;
+      lfo=ctx.createOscillator(); lfo.type="sine"; lfo.frequency.value=0.025+Math.random()*0.05;
+      lfoG=ctx.createGain(); lfoG.gain.value=amp*0.45; lfo.connect(lfoG); lfoG.connect(g.gain); lfo.start();
+      const o=ctx.createOscillator(); o.type="sine"; o.frequency.value=p.freq; o.connect(g); o.start(); oscs.push(o);
+    }
+    partials.push({oscs, g, lfo, lfoG, extra, kind, carrier});
   });
   return list;
 }
 function teardownPartials(){
-  partials.forEach(p=>{ try{p.osc.stop();p.lfo.stop();}catch(e){}
-    p.osc.disconnect();p.g.disconnect();p.lfo.disconnect();p.lfoG.disconnect(); });
+  partials.forEach(p=>{
+    try{ p.oscs.forEach(o=>o.stop()); if(p.lfo) p.lfo.stop(); }catch(e){}
+    p.oscs.forEach(o=>o.disconnect());
+    if(p.g) p.g.disconnect();
+    if(p.lfo) p.lfo.disconnect();
+    if(p.lfoG) p.lfoG.disconnect();
+    if(p.extra) p.extra.forEach(n=>{ try{n.disconnect();}catch(e){} });
+  });
   partials = [];
 }
 function buildDrone(){
@@ -333,74 +439,44 @@ function teardownDrone(){
   droneNode.osc.disconnect(); droneNode.g.disconnect(); droneNode=null;
 }
 
-function renderStrip(){
-  const maxA = Math.max.apply(null, N_RANGE.map(ampCurve));
-  const active = [];
-  stripEl.querySelectorAll(".pchip").forEach(chip=>{
-    const n = Number(chip.dataset.n);
-    const freq = state.freq * Math.pow(PHI, n);
-    const oor = !inRange(freq);
-    const on = state.on.has(n) && !oor;
-    chip.classList.toggle("oor", oor);
-    chip.classList.toggle("on", on);
-    chip.querySelector(".hz").textContent = oor ? "—" : Math.round(freq);
-    chip.querySelector(".bar i").style.height = (18 + (ampCurve(n)/maxA)*82).toFixed(0) + "%";
-    if(on) active.push(freq);
-  });
-  active.sort((a,b)=>a-b);
-  pInfo.textContent = active.length
-    ? `${active.length} tone${active.length>1?"s":""} · ${Math.round(active[0])}\u2013${Math.round(active[active.length-1])} Hz`
-    : "no tones selected";
-}
-
 // ---------- transport ----------
 function unlockIOSAudio(){
-  // 1) Tell iOS this is media playback → ignores the ring/mute switch
   try{ if(navigator.audioSession) navigator.audioSession.type = "playback"; }catch(e){}
-  // 2) Fallback for older iOS: a one-sample silent buffer "kicks" Web Audio on
   try{
     const b = ctx.createBuffer(1, 1, 22050);
     const s = ctx.createBufferSource();
     s.buffer = b; s.connect(ctx.destination); s.start(0);
   }catch(e){}
 }
-
 async function start(){
   ensureCtx();
-  unlockIOSAudio();                       // must run inside the user-gesture tap
+  unlockIOSAudio();
   if(ctx.state === "suspended") await ctx.resume();
-  const list = buildPartials(state.freq);
+  buildPartials();
   if(state.drone) buildDrone();
   rampMaster(state.vol, 2.2);
   state.playing = true;
   document.body.classList.remove("idle");
   orb.classList.remove("idle");
-  play.classList.add("playing");
-  play.textContent = "Pause";
-  hint.textContent = "Tap to pause";
-  renderStrip();
-  requestWake();
-  runViz();
+  play.classList.add("playing"); play.textContent = "Pause"; hint.textContent = "Tap to pause";
+  renderStrip(); requestWake(); runViz();
 }
 function stop(){
   state.playing = false;
   rampMaster(0, 1.6);
   setTimeout(()=>{ if(!state.playing){ teardownPartials(); teardownDrone(); } }, 1700);
   orb.classList.add("idle");
-  play.classList.remove("playing");
-  play.textContent = "Begin";
-  hint.textContent = "Tap to begin";
-  releaseWake();
-  cancelAnimationFrame(rafId);
+  play.classList.remove("playing"); play.textContent = "Begin"; hint.textContent = "Tap to begin";
+  releaseWake(); cancelAnimationFrame(rafId);
   orb.style.setProperty("--pulse",1); orb.style.setProperty("--energy",0);
 }
-function rebuild(){            // base / partials / drone changed mid-session: smooth swap
+function rebuild(){
   if(!state.playing) return;
   rampMaster(0, 0.7);
   setTimeout(()=>{
     if(!state.playing) return;
     teardownPartials(); teardownDrone();
-    const list = buildPartials(state.freq);
+    buildPartials();
     if(state.drone) buildDrone();
     rampMaster(state.vol, 1.3);
     renderStrip();
@@ -425,15 +501,13 @@ function runViz(){
 }
 
 // ---------- wake lock ----------
-async function requestWake(){
-  try{ if("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); }catch(e){}
-}
+async function requestWake(){ try{ if("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); }catch(e){} }
 function releaseWake(){ try{ wakeLock && wakeLock.release(); }catch(e){} wakeLock=null; }
 document.addEventListener("visibilitychange", ()=>{
   if(state.playing && document.visibilityState==="visible" && "wakeLock" in navigator && !wakeLock) requestWake();
 });
 
-// ---------- UI wiring ----------
+// ---------- UI ----------
 const presetsEl=document.getElementById("presets");
 const hzVal=document.getElementById("hzVal");
 const chakra=document.getElementById("chakra");
@@ -447,72 +521,160 @@ const droneEl=document.getElementById("drone");
 const stripEl=document.getElementById("strip");
 const allBtn=document.getElementById("allBtn");
 const noneBtn=document.getElementById("noneBtn");
+const modesEl=document.getElementById("modes");
+const baseWrap=document.getElementById("baseWrap");
+const bhint=document.getElementById("bhint");
+const harmLbl=document.getElementById("harmLbl");
+const beatCtl=document.getElementById("beatCtl");
+const beatRead=document.getElementById("beatRead");
+const beatEl=document.getElementById("beat");
+const bandsEl=document.getElementById("bands");
 
+// presets
 PRESETS.forEach(p=>{
   const el=document.createElement("div");
   el.className="preset"; el.dataset.f=p.f;
-  el.innerHTML=`<span class="dot" style="color:${p.c}"></span>
-    <div class="f">${p.f}</div><div class="n">${p.name}</div>`;
+  el.innerHTML=`<span class="dot" style="color:${p.c}"></span><div class="f">${p.f}</div><div class="n">${p.name}</div>`;
   el.addEventListener("click", ()=>selectFreq(p.f, p));
   presetsEl.appendChild(el);
 });
 
-function selectFreq(f, preset){
-  state.freq = f;
-  hzVal.textContent = Number.isInteger(f) ? f : f.toFixed(1);
-  chakra.textContent = preset ? `${preset.name} · ${preset.sub}` : "Custom Frequency";
-  const dotColor = preset ? preset.c : "#d8b56a";
-  document.querySelectorAll(".preset").forEach(el=>{
-    el.classList.toggle("active", Number(el.dataset.f)===f);
-  });
-  if(preset) customF.value="";
-  renderStrip();
+// mode buttons
+Object.keys(MODES).forEach(k=>{
+  const b=document.createElement("button"); b.dataset.m=k; b.textContent=MODES[k].name;
+  b.addEventListener("click", ()=>setMode(k));
+  modesEl.appendChild(b);
+});
+
+function updateReadout(){
+  const d = MODES[state.mode].display(state.freq, state.preset);
+  hzVal.textContent = d.hz; chakra.textContent = d.sub;
+}
+
+function setMode(key){
+  state.mode = key;
+  modesEl.querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.m===key));
+  const m = MODES[key];
+  baseWrap.classList.toggle("disabled", !m.usesBase);
+  const rhythmic = m.binaural || m.isochronic;
+  beatCtl.style.display = rhythmic ? "block" : "none";
+  if(rhythmic) refreshBeatUI();
+  bhint.style.display = rhythmic ? "block" : "none";
+  bhint.textContent = m.binaural ? "Use headphones for the binaural effect."
+                    : m.isochronic ? "Audible pulses — works on any speaker." : "";
+  harmLbl.textContent = m.name;
+  updateReadout();
+  buildStrip();
   rebuild();
+}
+
+function selectFreq(f, preset){
+  state.freq = f; state.preset = preset;
+  document.querySelectorAll(".preset").forEach(el=>el.classList.toggle("active", Number(el.dataset.f)===f));
+  if(preset) customF.value="";
+  updateReadout(); renderStrip(); rebuild();
+}
+
+function buildStrip(){
+  stripEl.innerHTML = "";
+  const onSet = state.on[state.mode];
+  currentParts().forEach(p=>{
+    const chip=document.createElement("div");
+    chip.className = "pchip" + (p.label==="f" ? " base" : "");
+    chip.dataset.id = p.id;
+    chip.innerHTML = `<div class="bar"><i></i></div><div class="ex">${p.label}</div><div class="hz"></div>`;
+    chip.addEventListener("click", ()=>{
+      if(chip.classList.contains("oor")) return;
+      if(onSet.has(p.id)) onSet.delete(p.id); else onSet.add(p.id);
+      renderStrip(); rebuild();
+    });
+    stripEl.appendChild(chip);
+  });
+  renderStrip();
+}
+
+function renderStrip(){
+  const parts = currentParts();
+  const byId = {}; parts.forEach(p=>byId[p.id]=p);
+  const onSet = state.on[state.mode];
+  const active = parts.filter(p=>onSet.has(p.id)&&inRange(p.freq));
+  const ref = refBase(MODES[state.mode], active);
+  const maxW = Math.max.apply(null, parts.map(p=>ampForFreq(p.freq, ref))) || 1;
+  const activeFreqs = [];
+  stripEl.querySelectorAll(".pchip").forEach(chip=>{
+    const p = byId[chip.dataset.id]; if(!p) return;
+    const oor = !inRange(p.freq);
+    const on  = onSet.has(p.id) && !oor;
+    chip.classList.toggle("oor", oor);
+    chip.classList.toggle("on", on);
+    chip.querySelector(".hz").textContent = oor ? "—" : fmtHz(p.freq);
+    chip.querySelector(".bar i").style.height = (18 + (ampForFreq(p.freq, ref)/maxW)*82).toFixed(0) + "%";
+    if(on) activeFreqs.push(p.freq);
+  });
+  activeFreqs.sort((a,b)=>a-b);
+  const m = MODES[state.mode];
+  const beatTag = m.binaural ? ` · ${fmtHz(state.binBeat)} Hz beat`
+                : m.isochronic ? ` · ${fmtHz(state.binBeat)} Hz pulse` : "";
+  pInfo.textContent = activeFreqs.length
+    ? `${activeFreqs.length} tone${activeFreqs.length>1?"s":""} · ${fmtHz(activeFreqs[0])}\u2013${fmtHz(activeFreqs[activeFreqs.length-1])} Hz${beatTag}`
+    : "no tones selected";
 }
 
 customF.addEventListener("input", ()=>{
   const v=parseFloat(customF.value);
   if(v>=20 && v<=12000) selectFreq(v, null);
 });
-
 volEl.addEventListener("input", ()=>{
   state.vol = volEl.value/100;
   volEl.style.setProperty("--p", volEl.value+"%");
   if(state.playing) rampMaster(state.vol, 0.3);
 });
 volEl.style.setProperty("--p","50%");
-
-// build the per-partial harmonic toggle strip
-N_RANGE.forEach(n=>{
-  const chip=document.createElement("div");
-  chip.className="pchip"+(n===0?" base":"");
-  chip.dataset.n=n;
-  chip.innerHTML=`<div class="bar"><i></i></div>
-    <div class="ex">${n===0?"f":"φ"+supExp(n)}</div><div class="hz"></div>`;
-  chip.addEventListener("click",()=>{
-    if(state.on.has(n)) state.on.delete(n); else state.on.add(n);
-    renderStrip(); rebuild();
-  });
-  stripEl.appendChild(chip);
-});
-allBtn.addEventListener("click",()=>{
-  N_RANGE.forEach(n=>{ if(inRange(state.freq*Math.pow(PHI,n))) state.on.add(n); });
+allBtn.addEventListener("click", ()=>{
+  const onSet=state.on[state.mode];
+  currentParts().forEach(p=>{ if(inRange(p.freq)) onSet.add(p.id); });
   renderStrip(); rebuild();
 });
-noneBtn.addEventListener("click",()=>{ state.on.clear(); renderStrip(); rebuild(); });
-
+noneBtn.addEventListener("click", ()=>{ state.on[state.mode].clear(); renderStrip(); rebuild(); });
 droneEl.addEventListener("click", ()=>{
   state.drone=!state.drone;
   droneEl.classList.toggle("on", state.drone);
   if(state.playing){ if(state.drone) buildDrone(); else teardownDrone(); }
 });
 
+function refreshBeatUI(){
+  const hz=state.binBeat;
+  beatRead.textContent = fmtHz(hz)+" Hz · "+bandName(hz);
+  beatEl.value = hz;
+  beatEl.style.setProperty("--p", ((hz-1)/39*100).toFixed(1)+"%");
+  bandsEl.querySelectorAll("button").forEach(b=>b.classList.toggle("on", Math.abs(parseFloat(b.dataset.hz)-hz)<0.06));
+}
+function applyBeat(){
+  refreshBeatUI();
+  updateReadout();
+  // live-retune without a rebuild (smooth while dragging)
+  if(ctx && state.playing){
+    const now=ctx.currentTime;
+    partials.forEach(p=>{
+      if(p.kind==="binaural" && p.oscs[1]) p.oscs[1].frequency.setTargetAtTime(p.carrier+state.binBeat, now, 0.04);
+      if(p.kind==="isoc" && p.lfo){
+        p.lfo.frequency.setTargetAtTime(state.binBeat, now, 0.04);
+        if(p.extra[0]) p.extra[0].frequency.setTargetAtTime(gateCutoff(state.binBeat), now, 0.04);
+      }
+    });
+  }
+  if(stripEl.children.length) renderStrip();
+}
+beatEl.addEventListener("input", ()=>{ const v=parseFloat(beatEl.value); if(!isNaN(v)){ state.binBeat=v; applyBeat(); } });
+bandsEl.addEventListener("click", (e)=>{ const b=e.target.closest("button"); if(!b) return; state.binBeat=parseFloat(b.dataset.hz); applyBeat(); });
+
 function togglePlay(){ state.playing ? stop() : start(); }
 play.addEventListener("click", togglePlay);
 orb.addEventListener("click", togglePlay);
 
 // init
-selectFreq(396, PRESETS[0]);
+document.querySelectorAll(".preset").forEach(el=>el.classList.toggle("active", Number(el.dataset.f)===396));
+setMode("golden");
 
 // PWA: register service worker for offline use
 if("serviceWorker" in navigator){
