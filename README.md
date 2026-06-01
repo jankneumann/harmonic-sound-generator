@@ -6,11 +6,12 @@ Runs entirely client-side with the Web Audio API — no server, no build step, n
 
 ## Use
 
-- **Pick a base** — tap a chakra/Solfeggio preset, or type any frequency (20–12000 Hz).
-- **Shape the harmonics** — the strip of toggles spans φ⁻⁵ … f … φ⁺⁵. Each chip is one partial at `base · φⁿ`; tap to include or drop it. `f` is the base tone itself, so you can keep it in or leave it out. *All* / *None* reset the selection. Partials that fall outside the audible range dim automatically.
+- **Pick a base** — tap a frequency from the ring around the orb (lowest at the top, increasing clockwise), or type any frequency (20–12000 Hz) into *Custom*.
+- **Choose a mode** — *Golden φ* and *Fibonacci* build a field of overtones above the base; *Schumann* and *Binaural* are brainwave-beat modes that ignore the base. Tap the **ⓘ** beside the mode name for a plain-language explanation of what it does.
+- **Shape the harmonics** — the strip of toggles spans the mode's partials. Each chip is one partial; tap to include or drop it. *All* / *None* reset the selection. Partials that fall outside the audible range dim automatically.
+- **Binaural beat** — in Binaural mode, set the perceived beat with the slider or the band buttons (Delta … Beta). Use headphones — the effect only works when each ear hears its own tone.
 - **Play / pause** — tap the glowing orb (or the button). The orb breathes with the live sound.
 - **Volume** — master slider, with click-free fade in/out.
-- **440 drone** — optional concert-A layer (off by default).
 
 On iPhone, open the page in Safari → **Share → Add to Home Screen** for a fullscreen, app-like launch. If it's silent, check the side mute switch — iOS routes Web Audio through it.
 

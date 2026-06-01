@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0a0a0c">
 <meta name="apple-mobile-web-app-title" content="Harmonics">
@@ -26,13 +27,17 @@
     --accent:#d8b56a;
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html,body{height:100%;}
+  html{height:100%;}
   body{
     background:var(--bg);
     color:var(--ink);
     font-family:'Jost',sans-serif;
     font-weight:300;
-    overflow:hidden;
+    /* allow vertical scroll as a fallback so the play button is always reachable,
+       even when a mobile browser toolbar overlays the bottom of the page */
+    overflow-x:hidden;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
     display:flex;
     flex-direction:column;
     align-items:center;
@@ -62,9 +67,9 @@
   header h1 em{color:var(--gold);font-style:italic;}
 
   /* Orb / visual */
-  .stage{flex:1;width:100%;display:flex;align-items:center;justify-content:center;position:relative;min-height:230px;}
+  .stage{flex:1;width:100%;display:flex;align-items:center;justify-content:center;position:relative;min-height:clamp(340px,86vw,460px);}
   .orb{
-    position:relative;width:min(62vw,250px);aspect-ratio:1;display:flex;
+    position:relative;width:min(50vw,210px);aspect-ratio:1;display:flex;
     align-items:center;justify-content:center;cursor:pointer;
     -webkit-user-select:none;user-select:none;
     transform:scale(var(--pulse,1));transition:transform .08s linear;
@@ -92,19 +97,24 @@
 
   .partial-info{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--ink-dim);text-align:center;margin-top:-6px;margin-bottom:14px;min-height:14px;}
 
-  /* presets */
-  .presets{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;width:100%;margin-bottom:12px;}
-  .preset{
-    background:#13110d;border:1px solid var(--line);border-radius:13px;
-    padding:9px 6px 8px;text-align:center;cursor:pointer;
-    transition:border-color .25s,background .25s,transform .1s;
+  /* base-frequency dial — chips arranged in a ring around the orb */
+  .dial{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:min(92vw,440px);aspect-ratio:1;pointer-events:none;z-index:4;
+    --r:clamp(120px,37vw,176px);            /* ring radius */
+    transition:opacity .3s,filter .3s;
   }
-  .preset:active{transform:scale(.97);}
-  .preset .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-bottom:5px;box-shadow:0 0 7px currentColor;}
-  .preset .f{font-family:'Space Mono',monospace;font-size:14px;color:var(--ink);}
-  .preset .n{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);margin-top:1px;}
-  .preset.active{border-color:var(--gold);background:#1d180e;}
-  .preset.active .f{color:var(--gold);}
+  .dial.disabled{opacity:.22;filter:grayscale(.6);}
+  .dial.disabled .fchip{pointer-events:none;}
+  .fchip{
+    position:absolute;left:50%;top:50%;pointer-events:auto;cursor:pointer;
+    min-width:40px;padding:5px 7px;text-align:center;line-height:1;
+    background:#13110d;border:1px solid var(--line);border-radius:11px;
+    font-family:'Space Mono',monospace;font-size:11.5px;color:var(--ink-dim);
+    transform:translate(-50%,-50%) rotate(var(--a)) translateY(calc(-1 * var(--r))) rotate(calc(-1 * var(--a)));
+    transition:color .2s,border-color .2s,background .2s,box-shadow .2s;
+  }
+  .fchip.active{border-color:var(--gold);background:#1d180e;color:var(--gold);box-shadow:0 0 12px #c9a86040;}
 
   /* custom */
   .custom{display:flex;align-items:center;gap:10px;width:100%;margin-bottom:16px;
@@ -116,9 +126,6 @@
   }
   .custom input::placeholder{color:#4a463d;}
   .custom .unit{font-family:'Space Mono',monospace;font-size:12px;color:var(--ink-dim);}
-
-  /* controls row */
-  .row{display:flex;align-items:center;gap:12px;width:100%;margin-bottom:14px;}
 
   /* harmonic toggle strip */
   .harm-head{display:flex;align-items:baseline;justify-content:space-between;width:100%;margin-bottom:8px;}
@@ -145,14 +152,6 @@
   .pchip.base{border-color:#4a4334;}
   .pchip.base.on{border-color:var(--gold);}
   .pchip.oor{opacity:.3;pointer-events:none;}
-  .toggle{display:flex;align-items:center;gap:9px;background:#13110d;border:1px solid var(--line);
-    border-radius:11px;padding:9px 13px;cursor:pointer;white-space:nowrap;}
-  .toggle .sw{width:34px;height:18px;border-radius:10px;background:#2a2722;position:relative;transition:background .25s;flex:none;}
-  .toggle .sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#6a6456;transition:transform .25s,background .25s;}
-  .toggle.on .sw{background:#5a4a22;}
-  .toggle.on .sw::after{transform:translateX(16px);background:var(--gold);}
-  .toggle span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);}
-  .toggle.on span{color:var(--ink);}
 
   /* volume */
   .vol{display:flex;align-items:center;gap:13px;width:100%;margin-bottom:20px;}
@@ -180,6 +179,17 @@
     font-family:'Jost',sans-serif;font-size:11px;letter-spacing:.08em;padding:7px 14px;cursor:pointer;
     transition:color .2s,background .2s,border-color .2s;}
   .modes button.on{background:#211a0e;border-color:var(--gold);color:var(--gold);}
+  /* mode explanation (tap-to-expand) */
+  .infoToggle{background:transparent;border:none;cursor:pointer;color:var(--gold);opacity:.85;
+    font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    display:inline-flex;align-items:center;gap:6px;margin:-6px 0 12px;padding:4px;align-self:center;}
+  .infoToggle .ic{width:14px;height:14px;border:1px solid var(--gold);border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-style:italic;opacity:.9;}
+  .infoToggle[hidden]{display:none;}
+  .infoPanel{width:100%;background:#100e0a;border:1px solid var(--line);border-radius:12px;
+    padding:13px 15px;margin:-2px 0 16px;font-size:12.5px;line-height:1.6;color:var(--ink-dim);}
+  .infoPanel[hidden]{display:none;}
+  .infoPanel b{color:var(--ink);font-weight:400;}
   #baseWrap{width:100%;transition:opacity .3s,filter .3s;}
   #baseWrap.disabled{opacity:.32;pointer-events:none;filter:grayscale(.7);}
   .bhint{display:none;width:100%;text-align:center;font-family:'Space Mono',monospace;font-size:10px;
@@ -204,6 +214,7 @@
   </header>
 
   <div class="stage">
+    <div class="dial" id="dial"></div>
     <div class="orb idle" id="orb">
       <div class="ring r3"></div><div class="ring r2"></div><div class="ring"></div>
       <div class="glow"></div>
@@ -218,10 +229,10 @@
   <div class="partial-info" id="pInfo"></div>
 
   <div class="modes" id="modes"></div>
+  <button class="infoToggle" id="infoToggle" hidden><span class="ic">i</span><span>What is <span id="infoName"></span>?</span></button>
+  <div class="infoPanel" id="infoPanel" hidden></div>
 
   <div id="baseWrap">
-  <div class="presets" id="presets"></div>
-
   <div class="custom">
     <label>Custom</label>
     <input id="customF" type="number" inputmode="decimal" min="20" max="12000" placeholder="enter Hz">
@@ -247,10 +258,6 @@
     <input type="range" id="beat" min="1" max="40" step="0.1" value="7.83">
   </div>
 
-  <div class="row">
-    <div class="toggle" id="drone"><div class="sw"></div><span>440 drone</span></div>
-  </div>
-
   <div class="vol">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d8b56a" stroke-width="1.4"><path d="M11 5 6 9H3v6h3l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
     <input type="range" id="vol" min="0" max="100" value="50">
@@ -259,7 +266,7 @@
   <button class="play" id="play">Begin</button>
 
   <footer>
-    Pure-sine golden-ratio harmonics, generated live. <b>iPhone:</b> plays even with the ring switch on; use the side buttons for volume.<br>
+    Pure-sine tones, generated live. Use headphones for the binaural beats. <b>On iPhone</b> it plays even with the ring/silent switch on.<br>
     A sound tool — not a medical device.
   </footer>
 </div>
@@ -268,25 +275,15 @@
 "use strict";
 const PHI = 1.6180339887498949;
 
-const PRESETS = [
-  {f:174, name:"Foundation", sub:"Pain relief", c:"#9a3a3a"},
-  {f:285, name:"Healing", sub:"Regeneration", c:"#bd5a34"},
-  {f:396, name:"Root", sub:"Muladhara", c:"#d0473b"},
-  {f:417, name:"Sacral", sub:"Svadhisthana", c:"#e07b2e"},
-  {f:528, name:"Solar", sub:"Manipura", c:"#e6c12e"},
-  {f:639, name:"Heart", sub:"Anahata", c:"#46c46a"},
-  {f:741, name:"Throat", sub:"Vishuddha", c:"#3aa0e0"},
-  {f:852, name:"Third Eye", sub:"Ajna", c:"#7c6fd0"},
-  {f:963, name:"Crown", sub:"Sahasrara", c:"#b06fe0"},
-];
+// base frequencies (Hz), arranged low → high around the orb
+const PRESETS = [144, 174, 198, 233, 264, 285, 396, 417, 528, 639, 741, 852, 963];
+const DEFAULT_FREQ = 396;
 
 const SUP = {"-":"⁻","+":"⁺","0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵"};
 function supExp(n){ if(n===0) return "⁰"; return ((n<0?"-":"+")+Math.abs(n)).split("").map(c=>SUP[c]).join(""); }
 function inRange(freq){ return freq>=16 && freq<=14000; }
 function fmtHz(f){ return f<100 ? Number(f.toFixed(1)) : Math.round(f); }
 function bandName(hz){ return hz<4?"Delta":hz<8?"Theta":hz<13?"Alpha":hz<30?"Beta":"Gamma"; }
-function gateCutoff(beat){ return Math.max(30, Math.min(800, beat*8)); }
-function baseLabel(f,p){ return p ? `${p.name} · ${p.sub}` : "Custom Frequency"; }
 
 // ---- scale modes: each maps a base frequency -> partials {id,label,freq} ----
 const MODES = {
@@ -294,49 +291,40 @@ const MODES = {
     name:"Golden φ", usesBase:true,
     partials:(f)=>{ const o=[]; for(let n=-5;n<=5;n++) o.push({id:"g"+n, label:n===0?"f":"φ"+supExp(n), freq:f*Math.pow(PHI,n)}); return o; },
     defaultOn:["g-1","g0","g1","g2","g3","g4"],
-    display:(f,p)=>({hz:String(fmtHz(f)), sub:baseLabel(f,p)})
-  },
-  harmonic: {
-    name:"Harmonic", usesBase:true,
-    partials:(f)=>[1,2,3,4,5,6,7,8].map(k=>({id:"h"+k, label:"×"+k, freq:f*k})),
-    defaultOn:["h1","h2","h3","h4","h5"],
-    display:(f,p)=>({hz:String(fmtHz(f)), sub:baseLabel(f,p)})
+    display:(f)=>({hz:String(fmtHz(f)), sub:"Golden · φ"}),
+    info:"Tones spaced by the <b>golden ratio</b> (φ ≈ 1.618) rather than ordinary whole-number harmonics. Because φ never settles into a simple repeating pattern, the tones drift gently against one another to create a shimmering, ever-shifting field instead of one fixed note."
   },
   fibonacci: {
     name:"Fibonacci", usesBase:true,
     partials:(f)=>[1,2,3,5,8,13,21,34].map(k=>({id:"fib"+k, label:"×"+k, freq:f*k})),
     defaultOn:["fib1","fib2","fib3","fib5","fib8"],
-    display:(f,p)=>({hz:String(fmtHz(f)), sub:baseLabel(f,p)})
+    display:(f)=>({hz:String(fmtHz(f)), sub:"Fibonacci"}),
+    info:"Tones stacked on the <b>Fibonacci sequence</b> (1, 2, 3, 5, 8, 13…), the number pattern found throughout nature. The widening spacing builds an open, resonant column of overtones above the base frequency."
   },
   schumann: {
     name:"Schumann", usesBase:false,
     // 7.83 Hz raised by octaves into the audible range
     partials:()=>[3,4,5,6,7,8,9].map(o=>{ const fr=7.83*Math.pow(2,o); return {id:"so"+o, label:String(fmtHz(fr)), freq:fr}; }),
     defaultOn:["so4","so5","so6","so7"],
-    display:()=>({hz:"7.83", sub:"Schumann · octaves"})
+    display:()=>({hz:"7.83", sub:"Schumann · octaves"}),
+    info:"The <b>Schumann resonance</b> (7.83 Hz) is the natural electromagnetic pulse of the cavity between the Earth's surface and the ionosphere — sometimes called the planet's \"heartbeat.\" It's far too low to hear, so this mode raises it by octaves into the audible range, giving a deep, grounding tone many people find calming."
   },
   binaural: {
     name:"Binaural", usesBase:false, binaural:true,
     // audible carriers, each split L/R; the offset (state.binBeat) is the perceived beat
     partials:()=>[4,5,6,7].map(o=>{ const fr=7.83*Math.pow(2,o); return {id:"bn"+o, label:String(fmtHz(fr)), freq:fr}; }),
     defaultOn:["bn4","bn5"],
-    display:()=>({hz:String(fmtHz(state.binBeat)), sub:"Binaural · "+bandName(state.binBeat)})
-  },
-  isochronic: {
-    name:"Isochronic", usesBase:false, isochronic:true,
-    // audible carriers, each pulsed on/off at state.binBeat — works on any speaker
-    partials:()=>[4,5,6,7].map(o=>{ const fr=7.83*Math.pow(2,o); return {id:"iso"+o, label:String(fmtHz(fr)), freq:fr}; }),
-    defaultOn:["iso4","iso5"],
-    display:()=>({hz:String(fmtHz(state.binBeat)), sub:"Isochronic · "+bandName(state.binBeat)})
+    display:()=>({hz:String(fmtHz(state.binBeat)), sub:"Binaural · "+bandName(state.binBeat)}),
+    info:"<b>Binaural beats</b> play a slightly different tone in each ear; the brain perceives the difference as a slow pulse set by the slider. <b>Headphones are required</b> — the effect only appears when each ear hears its own tone. Slower beats (Delta/Theta) lean toward rest and sleep, faster ones (Alpha/Beta) toward calm focus."
   }
 };
 
-const state = { freq:396, preset:PRESETS[0], mode:"golden", vol:0.5, drone:false, playing:false, binBeat:7.83, on:{} };
+const state = { freq:DEFAULT_FREQ, mode:"golden", vol:0.5, playing:false, binBeat:7.83, on:{} };
 Object.keys(MODES).forEach(k=>{ state.on[k]=new Set(MODES[k].defaultOn); });
 
 // ---------- audio ----------
 let ctx=null, master=null, analyser=null;
-let partials=[], droneNode=null, wakeLock=null, rafId=null;
+let partials=[], wakeLock=null, rafId=null;
 
 function ensureCtx(){
   if(ctx) return;
@@ -392,18 +380,6 @@ function buildPartials(){
         o.connect(pn); pn.connect(g); o.start(); oscs.push(o); extra.push(pn);
       });
 
-    } else if(mode.isochronic){
-      kind="isoc";
-      const amp = unit;
-      g.gain.value = amp*0.5;                      // gate pulses gain between 0 and amp
-      const o=ctx.createOscillator(); o.type="sine"; o.frequency.value=p.freq; o.connect(g); o.start(); oscs.push(o);
-      // square gate -> lowpass (rounds edges, prevents clicks) -> depth -> gain param
-      const gate=ctx.createOscillator(); gate.type="square"; gate.frequency.value=state.binBeat;
-      const lp=ctx.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=gateCutoff(state.binBeat);
-      const depth=ctx.createGain(); depth.gain.value=amp*0.5;
-      gate.connect(lp); lp.connect(depth); depth.connect(g.gain); gate.start();
-      lfo=gate; lfoG=depth; extra=[lp];
-
     } else {
       const amp = unit;
       g.gain.value = amp;
@@ -426,18 +402,6 @@ function teardownPartials(){
   });
   partials = [];
 }
-function buildDrone(){
-  if(droneNode) return;
-  const osc = ctx.createOscillator(); osc.type="sine"; osc.frequency.value=440;
-  const g = ctx.createGain(); g.gain.value=0.22;
-  osc.connect(g); g.connect(master); osc.start();
-  droneNode = {osc, g};
-}
-function teardownDrone(){
-  if(!droneNode) return;
-  try{droneNode.osc.stop();}catch(e){}
-  droneNode.osc.disconnect(); droneNode.g.disconnect(); droneNode=null;
-}
 
 // ---------- transport ----------
 function unlockIOSAudio(){
@@ -453,7 +417,6 @@ async function start(){
   unlockIOSAudio();
   if(ctx.state === "suspended") await ctx.resume();
   buildPartials();
-  if(state.drone) buildDrone();
   rampMaster(state.vol, 2.2);
   state.playing = true;
   document.body.classList.remove("idle");
@@ -464,7 +427,7 @@ async function start(){
 function stop(){
   state.playing = false;
   rampMaster(0, 1.6);
-  setTimeout(()=>{ if(!state.playing){ teardownPartials(); teardownDrone(); } }, 1700);
+  setTimeout(()=>{ if(!state.playing){ teardownPartials(); } }, 1700);
   orb.classList.add("idle");
   play.classList.remove("playing"); play.textContent = "Begin"; hint.textContent = "Tap to begin";
   releaseWake(); cancelAnimationFrame(rafId);
@@ -475,9 +438,8 @@ function rebuild(){
   rampMaster(0, 0.7);
   setTimeout(()=>{
     if(!state.playing) return;
-    teardownPartials(); teardownDrone();
+    teardownPartials();
     buildPartials();
-    if(state.drone) buildDrone();
     rampMaster(state.vol, 1.3);
     renderStrip();
   }, 720);
@@ -508,7 +470,7 @@ document.addEventListener("visibilitychange", ()=>{
 });
 
 // ---------- UI ----------
-const presetsEl=document.getElementById("presets");
+const dialEl=document.getElementById("dial");
 const hzVal=document.getElementById("hzVal");
 const chakra=document.getElementById("chakra");
 const pInfo=document.getElementById("pInfo");
@@ -517,7 +479,6 @@ const play=document.getElementById("play");
 const hint=document.getElementById("hint");
 const customF=document.getElementById("customF");
 const volEl=document.getElementById("vol");
-const droneEl=document.getElementById("drone");
 const stripEl=document.getElementById("strip");
 const allBtn=document.getElementById("allBtn");
 const noneBtn=document.getElementById("noneBtn");
@@ -529,14 +490,18 @@ const beatCtl=document.getElementById("beatCtl");
 const beatRead=document.getElementById("beatRead");
 const beatEl=document.getElementById("beat");
 const bandsEl=document.getElementById("bands");
+const infoToggle=document.getElementById("infoToggle");
+const infoName=document.getElementById("infoName");
+const infoPanel=document.getElementById("infoPanel");
 
-// presets
-PRESETS.forEach(p=>{
+// base-frequency ring around the orb (lowest at 12 o'clock, increasing clockwise)
+PRESETS.forEach((f, i)=>{
   const el=document.createElement("div");
-  el.className="preset"; el.dataset.f=p.f;
-  el.innerHTML=`<span class="dot" style="color:${p.c}"></span><div class="f">${p.f}</div><div class="n">${p.name}</div>`;
-  el.addEventListener("click", ()=>selectFreq(p.f, p));
-  presetsEl.appendChild(el);
+  el.className="fchip"; el.dataset.f=f;
+  el.style.setProperty("--a", (i*360/PRESETS.length).toFixed(2)+"deg");
+  el.textContent=f;
+  el.addEventListener("click", ()=>selectFreq(f));
+  dialEl.appendChild(el);
 });
 
 // mode buttons
@@ -545,9 +510,10 @@ Object.keys(MODES).forEach(k=>{
   b.addEventListener("click", ()=>setMode(k));
   modesEl.appendChild(b);
 });
+infoToggle.addEventListener("click", ()=>{ infoPanel.hidden = !infoPanel.hidden; });
 
 function updateReadout(){
-  const d = MODES[state.mode].display(state.freq, state.preset);
+  const d = MODES[state.mode].display(state.freq);
   hzVal.textContent = d.hz; chakra.textContent = d.sub;
 }
 
@@ -556,22 +522,25 @@ function setMode(key){
   modesEl.querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.m===key));
   const m = MODES[key];
   baseWrap.classList.toggle("disabled", !m.usesBase);
-  const rhythmic = m.binaural || m.isochronic;
+  dialEl.classList.toggle("disabled", !m.usesBase);
+  const rhythmic = !!m.binaural;
   beatCtl.style.display = rhythmic ? "block" : "none";
   if(rhythmic) refreshBeatUI();
   bhint.style.display = rhythmic ? "block" : "none";
-  bhint.textContent = m.binaural ? "Use headphones for the binaural effect."
-                    : m.isochronic ? "Audible pulses — works on any speaker." : "";
+  bhint.textContent = rhythmic ? "Use headphones for the binaural effect." : "";
+  if(m.info){ infoName.textContent = m.name; infoPanel.innerHTML = m.info; infoToggle.hidden = false; }
+  else { infoToggle.hidden = true; }
+  infoPanel.hidden = true;
   harmLbl.textContent = m.name;
   updateReadout();
   buildStrip();
   rebuild();
 }
 
-function selectFreq(f, preset){
-  state.freq = f; state.preset = preset;
-  document.querySelectorAll(".preset").forEach(el=>el.classList.toggle("active", Number(el.dataset.f)===f));
-  if(preset) customF.value="";
+function selectFreq(f){
+  state.freq = f;
+  document.querySelectorAll(".fchip").forEach(el=>el.classList.toggle("active", Number(el.dataset.f)===f));
+  if(PRESETS.includes(f)) customF.value="";
   updateReadout(); renderStrip(); rebuild();
 }
 
@@ -613,8 +582,7 @@ function renderStrip(){
   });
   activeFreqs.sort((a,b)=>a-b);
   const m = MODES[state.mode];
-  const beatTag = m.binaural ? ` · ${fmtHz(state.binBeat)} Hz beat`
-                : m.isochronic ? ` · ${fmtHz(state.binBeat)} Hz pulse` : "";
+  const beatTag = m.binaural ? ` · ${fmtHz(state.binBeat)} Hz beat` : "";
   pInfo.textContent = activeFreqs.length
     ? `${activeFreqs.length} tone${activeFreqs.length>1?"s":""} · ${fmtHz(activeFreqs[0])}\u2013${fmtHz(activeFreqs[activeFreqs.length-1])} Hz${beatTag}`
     : "no tones selected";
@@ -622,7 +590,7 @@ function renderStrip(){
 
 customF.addEventListener("input", ()=>{
   const v=parseFloat(customF.value);
-  if(v>=20 && v<=12000) selectFreq(v, null);
+  if(v>=20 && v<=12000) selectFreq(v);
 });
 volEl.addEventListener("input", ()=>{
   state.vol = volEl.value/100;
@@ -636,11 +604,6 @@ allBtn.addEventListener("click", ()=>{
   renderStrip(); rebuild();
 });
 noneBtn.addEventListener("click", ()=>{ state.on[state.mode].clear(); renderStrip(); rebuild(); });
-droneEl.addEventListener("click", ()=>{
-  state.drone=!state.drone;
-  droneEl.classList.toggle("on", state.drone);
-  if(state.playing){ if(state.drone) buildDrone(); else teardownDrone(); }
-});
 
 function refreshBeatUI(){
   const hz=state.binBeat;
@@ -657,10 +620,6 @@ function applyBeat(){
     const now=ctx.currentTime;
     partials.forEach(p=>{
       if(p.kind==="binaural" && p.oscs[1]) p.oscs[1].frequency.setTargetAtTime(p.carrier+state.binBeat, now, 0.04);
-      if(p.kind==="isoc" && p.lfo){
-        p.lfo.frequency.setTargetAtTime(state.binBeat, now, 0.04);
-        if(p.extra[0]) p.extra[0].frequency.setTargetAtTime(gateCutoff(state.binBeat), now, 0.04);
-      }
     });
   }
   if(stripEl.children.length) renderStrip();
@@ -673,7 +632,7 @@ play.addEventListener("click", togglePlay);
 orb.addEventListener("click", togglePlay);
 
 // init
-document.querySelectorAll(".preset").forEach(el=>el.classList.toggle("active", Number(el.dataset.f)===396));
+selectFreq(DEFAULT_FREQ);
 setMode("golden");
 
 // PWA: register service worker for offline use
